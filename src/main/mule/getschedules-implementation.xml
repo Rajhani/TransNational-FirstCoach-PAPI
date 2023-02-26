@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="getschedules-firstCoach" doc:id="65f345d3-eef1-4a41-b1e3-13467de527a2" >
+		<http:request method="GET" doc:name="Request" doc:id="a3103725-da3e-4119-90eb-53ee52a47276" config-ref="HTTP_Request_configuration1" path="/api/transportType/transportCompany/schedules " />
+		<ee:transform doc:name="Transform Message" doc:id="a374a5e3-0c31-451d-962f-00c4965390ed">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	companyCode: vars.transportCompany,
+	departureSchedules: payload.departureSchedules map ( departureSchedule , indexOfDepartureSchedule ) -> {
+		availableSeats: departureSchedule.availableSeats,
+		departureDateTime: departureSchedule.departureDateTime,
+		travelRoute: {
+			destinationLocation: {
+				locationCode: departureSchedule.travelRoute.destinationLocation.locationCode
+			},
+			originLocation: {
+				locationCode: departureSchedule.travelRoute.originLocation.locationCode
+			}
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="5069fac4-b011-4ab7-8ce1-b76416421bd7" message="#[payload]" />
+	</sub-flow>
+	<sub-flow name="getschedules-transNational" doc:id="24002991-12af-4d01-9f4b-37f87159350c" >
+		<ee:transform doc:name="Transform Message" doc:id="b996ab9b-b5d0-41b8-952b-62a5f21ca576">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="9b8ce0c7-7e0f-441d-81be-67e692c0fbb7" message="#[payload]"/>
+	</sub-flow>
+	<flow name="implementationforSchedules" doc:id="5d93e6ce-654a-47e0-a8e9-9b415fff5e8b" >
+		<choice doc:name="Choice" doc:id="673422ec-3011-437d-bae5-4986eb3a1d2b" >
+			<when expression="#[vars.transportCompany== 'TransNational']">
+				<flow-ref doc:name="Flow Reference" doc:id="663db6bc-6993-42f7-8c8a-daa0c07fcc96" name="getschedules-transNational"/>
+			</when>
+			<when expression="#[vars.transportCompany== 'firstCoach']">
+				<flow-ref doc:name="Flow Reference" doc:id="269ddf59-cbae-40bb-892e-80c5422d9515" name="getschedules-firstCoach"/>
+			</when>
+			<otherwise >
+				<scatter-gather doc:name="Scatter-Gather" doc:id="a1fadf7f-d976-4843-81df-5d683d0d97a6" >
+					<route >
+						<set-variable value="firstCoach" doc:name="Set Variable" doc:id="679ecdc6-4bd6-46ed-b430-39a2c388505b" variableName="transportCompany"/>
+						<flow-ref doc:name="Flow Reference" doc:id="62074875-8a60-4a71-9f13-89cb5e79ee71" name="getschedules-firstCoach"/>
+					</route>
+					<route >
+						<flow-ref doc:name="Flow Reference" doc:id="b85c8646-fc17-4dae-8524-ccc064743d90" name="getschedules-transNational"/>
+					</route>
+				</scatter-gather>
+				<ee:transform doc:name="Transform Message" doc:id="29bcda25-a5d3-4a7c-a61f-79a39554346b">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+(payload."0".payload) ++ (payload."1".payload)]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="49d792b3-4410-415b-96ba-0fdc981738f7" message="#[payload]"/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

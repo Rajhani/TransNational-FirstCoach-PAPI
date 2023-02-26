@@ -1,0 +1,7 @@
+%dw 2.0
+
+type auto_65f345d3_eef1_4a41_b1e3_13467de527a2_Output_Payload = {|
+  companyCode: String, 
+  departureSchedules: Array<{|    availableSeats: Number {"typeId": "int"},     departureDateTime: String,     travelRoute: {|      destinationLocation: {| locationCode: String |},       originLocation: {| locationCode: String |}    |}  |}>
+|}
+

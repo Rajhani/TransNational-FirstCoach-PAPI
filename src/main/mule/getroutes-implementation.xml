@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="23be38b7-6951-45e1-8b73-29472776edb0" >
+		<http:request-connection host="transnational-sapi.us-e2.cloudhub.io"/>
+	</http:request-config>
+	<http:request-config name="HTTP_Request_configuration1" doc:name="HTTP Request configuration" doc:id="395bf985-538c-4e87-a757-e0940d4b78ad" >
+		<http:request-connection host="firstcoach-sapi.us-e2.cloudhub.io" >
+			<http:authentication >
+				<http:basic-authentication username="admin" password="admin" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<ee:object-store-caching-strategy name="Caching_Strategy" doc:name="Caching Strategy" doc:id="cd5c4457-16dc-4c60-b6fc-111535455c3b" keyGenerationExpression="#[vars.RequestPath ++ vars.transportCompany]" />
+	<sub-flow name="getroutes-TransNational" doc:id="1e1acb5b-a432-4e54-afa3-4209eb39cb7a" >
+		<ee:cache doc:name="Cache" doc:id="58e7b817-0cbb-47fb-8301-04105dedb2e2" cachingStrategy-ref="Caching_Strategy">
+			<http:request method="GET" doc:name="Request" doc:id="d232e8a6-cad8-40a7-98a7-83dc3b29e61d" config-ref="HTTP_Request_configuration" path="/api/transportType/transportCompany/routes " />
+			<ee:transform doc:name="Transform Message" doc:id="040f6fc1-08a8-49a4-b2e3-21ed33c6b305">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	companyCode: vars.transportCompany,
+	destinationLocation: {
+		locationCode: payload01.destinationLocation.locationCode,
+		
+			},
+	originLocation: {
+		locationCode: payload01.originLocation.locationCode,
+		 
+		
+	}
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+		</ee:cache>
+		<logger level="INFO" doc:name="Logger" doc:id="74bcfdc5-497e-4bc5-9967-28ceedc48028" message="#[payload]" />
+	</sub-flow>
+	<sub-flow name="getroutes-firstCoach" doc:id="45bd68ce-6ff8-4bf8-b576-7649d8d5443c" >
+		<ee:cache doc:name="Cache" doc:id="377b273f-3531-4cee-8430-92451f8adc3d" cachingStrategy-ref="Caching_Strategy">
+			<http:request method="GET" doc:name="Request" doc:id="f01bdc20-2f9e-42f9-9224-59af34b1cbe7" config-ref="HTTP_Request_configuration1" path="/api/transportType/transportCompany/routes ">
+				</http:request>
+			<ee:transform doc:name="Transform Message" doc:id="06864780-98e2-4abb-ad93-1c2514ee2f4d">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	companyCode:  vars.transportCompany,
+	destinationLocation: {
+		locationCode: payload01.destinationLocation.locationCode
+	},
+	originLocation: {
+		locationCode: payload01.originLocation.locationCode
+	}
+} ]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+		</ee:cache>
+		<logger level="INFO" doc:name="Logger" doc:id="3061b830-f21d-4407-a118-b3968f9920c0" message="#[payload]" />
+	</sub-flow>
+	<flow name="implementationforroutes" doc:id="e95c7736-3c53-4235-815f-bbe3fc94facd" >
+		<choice doc:name="Choice" doc:id="8ab1a62f-7787-4d06-a8e8-675ceaf04b3f" >
+			<when expression="#[vars.transportCompany== 'firstCoach']">
+				<flow-ref doc:name="Flow Reference" doc:id="c2fffddf-3797-4899-bba9-366424ccae70" name="getroutes-firstCoach"/>
+			</when>
+			<when expression="#[vars.transportCompany== 'TransNational']">
+				<flow-ref doc:name="Flow Reference" doc:id="51a9395d-c270-4f3c-a519-114251039ec8" name="getroutes-TransNational"/>
+			</when>
+			<otherwise>
+				<scatter-gather doc:name="Scatter-Gather" doc:id="01262629-080f-4605-881b-133f4ab8d44f" >
+					<route >
+						<set-variable value="TransNational" doc:name="Set Variable" doc:id="314935c5-3800-419e-93fb-25c6f0e1602f" variableName="transportCompany"/>
+						<flow-ref doc:name="Flow Reference" doc:id="6f0114e2-aa30-46ef-a04a-33b1e4cbacde" name="getroutes-TransNational"/>
+					</route>
+					<route >
+						<set-variable value="firstCoach" doc:name="Set Variable" doc:id="c86cbee5-0f05-4ebb-b76b-5d732bfbadec" variableName="transportCompany"/>
+						<flow-ref doc:name="Flow Reference" doc:id="1da2b4d6-8a4a-4692-8566-67013eda2609" name="getroutes-firstCoach"/>
+					</route>
+				</scatter-gather>
+				<ee:transform doc:name="Transform Message" doc:id="4f00597d-cd72-43c2-9b8f-5d502290eb8b" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+(payload."0".payload)++ (payload."1".payload)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="73cfb53b-084b-4d1a-b348-6c54840878a9" message="#[payload]" />
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
